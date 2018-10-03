@@ -1,0 +1,17 @@
+To make the sample program
+$ make # see makefile for deatils
+
+To run the sample program
+$ ./threes # by default the program will run for 1000 games
+
+To specify the total games to run
+$ ./threes --total=100000
+
+To specify the total games to run, and seed the environment
+$ ./threes --total=100000 --evil=seed=1000
+
+To save the statistic result to a file
+$ ./threes --save=stat.txt # existing file will be overwrited
+
+To load and review the statistic result from a file
+$ ./threes --load=stat.txt

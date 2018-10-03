@@ -1,0 +1,6 @@
+.DS_store
+*/.DS_store
+**/.DS_store
+
+src/threes
+src/threes.dSYM
