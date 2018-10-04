@@ -17,7 +17,7 @@
 #include "statistic.h"
 
 int main(int argc, const char* argv[]) {
-	std::cout << "2048-Demo: ";
+	std::cout << "Threes-Demo: ";
 	std::copy(argv, argv + argc, std::ostream_iterator<const char*>(std::cout, " "));
 	std::cout << std::endl << std::endl;
 
@@ -64,9 +64,11 @@ int main(int argc, const char* argv[]) {
 
 		stat.open_episode(play.name() + ":" + evil.name());
 		episode& game = stat.back();
+		action prev = action::place(0, 0);
 		while (true) {
 			agent& who = game.take_turns(play, evil);
-			action move = who.take_action(game.state());
+			action move = who.take_action(game.state(), prev);
+			prev = action(move);
 			if (game.apply_action(move) != true) break;
 			if (who.check_for_win(game.state())) break;
 		}

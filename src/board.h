@@ -2,6 +2,7 @@
 #include <array>
 #include <iostream>
 #include <iomanip>
+#include "utilities.h"
 
 /**
  * array-based board for 2048
@@ -53,7 +54,7 @@ public:
 	 */
 	reward place(unsigned pos, cell tile) {
 		if (pos >= 16) return -1;
-		if (tile != 1 && tile != 2) return -1;
+		if (tile != 1 && tile != 2 && tile != 3) return -1;
 		operator()(pos) = tile;
 		return 0;
 	}
@@ -77,25 +78,24 @@ public:
 		reward score = 0;
 		for (int r = 0; r < 4; r++) {
 			auto& row = tile[r];
-			int top = 0, hold = 0;
-			for (int c = 0; c < 4; c++) {
-				int tile = row[c];
+			for (int c = 1; c < 4; c++) {
+				int tile = row[c], hold = row[c-1];
 				if (tile == 0) continue;
-				row[c] = 0;
 				if (hold) {
-					if (tile == hold) {
-						row[top++] = ++tile;
-						score += (1 << tile);
-						hold = 0;
-					} else {
-						row[top++] = hold;
-						hold = tile;
+					if (tile > 2 && tile == hold) {
+						score += power(3, tile - 2);
+						row[c-1] = ++tile;
+						row[c] = 0;
+					} else if (tile + hold == 3) {
+						score += 3;
+						row[c-1] = 3;
+						row[c] = 0;
 					}
 				} else {
-					hold = tile;
+					row[c-1] = tile;
+					row[c] = 0;
 				}
 			}
-			if (hold) tile[r][top] = hold;
 		}
 		return (*this != prev) ? score : -1;
 	}
@@ -162,7 +162,7 @@ public:
 		out << "+------------------------+" << std::endl;
 		for (auto& row : b.tile) {
 			out << "|" << std::dec;
-			for (auto t : row) out << std::setw(6) << ((1 << t) & -2u);
+			for (auto t : row) out << std::setw(6) << tile_table[t];
 			out << "|" << std::endl;
 		}
 		out << "+------------------------+" << std::endl;

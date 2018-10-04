@@ -37,7 +37,7 @@ public:
 	}
 	agent& take_turns(agent& play, agent& evil) {
 		ep_time = millisec();
-		return (std::max(step() + 1, size_t(2)) % 2) ? play : evil;
+		return (std::max(step() + 1, size_t(9)) % 2) ? evil : play;
 	}
 	agent& last_turns(agent& play, agent& evil) {
 		return take_turns(evil, play);
@@ -47,19 +47,21 @@ public:
 	size_t step(unsigned who = -1u) const {
 		int size = ep_moves.size(); // 'int' is important for handling 0
 		switch (who) {
-		case action::slide::type: return (size - 1) / 2;
-		case action::place::type: return (size - (size - 1) / 2);
+		case action::slide::type: return (size - 8) / 2;
+		case action::place::type: return (size - (size - 8) / 2);
 		default:                  return size;
 		}
 	}
 
 	time_t time(unsigned who = -1u) const {
 		time_t time = 0;
-		size_t i = 2;
+		size_t i = 9;
 		switch (who) {
-		case action::place::type:
-			if (ep_moves.size()) time += ep_moves[0].time, i = 1;
+		case action::place::type: {
+			for (i = 0; i < ep_moves.size() && i < 8; i++) time += ep_moves[i].time;
+			i = 8;
 			// no break;
+		}
 		case action::slide::type:
 			while (i < ep_moves.size()) time += ep_moves[i].time, i += 2;
 			break;
@@ -72,11 +74,13 @@ public:
 
 	std::vector<action> actions(unsigned who = -1u) const {
 		std::vector<action> res;
-		size_t i = 2;
+		size_t i = 9;
 		switch (who) {
-		case action::place::type:
-			if (ep_moves.size()) res.push_back(ep_moves[0]), i = 1;
+		case action::place::type: {
+			for (i = 0; i < ep_moves.size() && i < 8; i++) res.push_back(ep_moves[i]);
+			i = 8;
 			// no break;
+		}
 		case action::slide::type:
 			while (i < ep_moves.size()) res.push_back(ep_moves[i]), i += 2;
 			break;
