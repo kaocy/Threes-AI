@@ -15,12 +15,13 @@ class statistic;
 class episode {
 friend class statistic;
 public:
-	episode() : ep_state(initial_state()), ep_score(0), ep_time(0) { ep_moves.reserve(10000); }
+	episode() : ep_state(initial_state()), ep_score(0), ep_time(0), ep_tile_bag(14) { ep_moves.reserve(10000); }
 
 public:
 	board& state() { return ep_state; }
 	const board& state() const { return ep_state; }
 	board::reward score() const { return ep_score; }
+	int tile_bag() { return ep_tile_bag; }
 
 	void open_episode(const std::string& tag) {
 		ep_open = { tag, millisec() };
@@ -29,6 +30,11 @@ public:
 		ep_close = { tag, millisec() };
 	}
 	bool apply_action(action move) {
+		if (move.type() == action::place::type) {
+			//std::cout << (move.event() >> 4) << " " << ep_tile_bag << std::endl;
+			ep_tile_bag ^= (1 << ((move.event() >> 4) & 0x3));
+			if (ep_tile_bag == 0)	ep_tile_bag = 14; // 0b1110
+		}
 		board::reward reward = move.apply(state());
 		if (reward == -1) return false;
 		ep_moves.emplace_back(move, reward, millisec() - ep_time);
@@ -174,6 +180,7 @@ private:
 	board::reward ep_score;
 	std::vector<move> ep_moves;
 	time_t ep_time;
+	int ep_tile_bag;
 
 	meta ep_open;
 	meta ep_close;
