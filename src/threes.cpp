@@ -61,20 +61,25 @@ int main(int argc, const char* argv[]) {
 	while (!stat.is_finished()) {
 		play.open_episode("~:" + evil.name());
 		evil.open_episode(play.name() + ":~");
-
 		stat.open_episode(play.name() + ":" + evil.name());
+
 		episode& game = stat.back();
 		action prev = action::place(0, 0);
+
 		while (true) {
 			agent& who = game.take_turns(play, evil);
-			action move = who.take_action(game.state(), prev, game.tile_bag());
+			int next_tile = game.next_tile();
+			action move = who.take_action(game.state(), prev, next_tile);
+
+			game.set_next_tile(next_tile);
 			prev = action(move);
+
 			if (game.apply_action(move) != true) break;
 			if (who.check_for_win(game.state())) break;
 		}
 		agent& win = game.last_turns(play, evil);
-		stat.close_episode(win.name());
 
+		stat.close_episode(win.name());
 		play.close_episode(win.name());
 		evil.close_episode(win.name());
 	}

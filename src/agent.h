@@ -21,7 +21,7 @@ public:
 	virtual ~agent() {}
 	virtual void open_episode(const std::string& flag = "") {}
 	virtual void close_episode(const std::string& flag = "") {}
-	virtual action take_action(const board& b, action prev, int tile_bag) { return action(); }
+	virtual action take_action(const board& b, action prev, int& next_tile) { return action(); }
 	virtual bool check_for_win(const board& b) { return false; }
 
 public:
@@ -61,19 +61,31 @@ protected:
  */
 class rndenv : public random_agent {
 public:
-	rndenv(const std::string& args = "") : random_agent("name=random role=environment " + args),
+	rndenv(const std::string& args = "") : 
+		random_agent("name=random role=environment " + args),
 		space({ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 }),
-		bag({ 1, 2, 3 }) {}
+		bag({ 1, 2, 3 }),
+		tile_bag(0b1110),
+		popup(1, 3) {}
 
-	virtual action take_action(const board& after, action prev, int tile_bag) {
+	virtual void open_episode(const std::string& flag = "") { tile_bag = 0b1110; } 
+
+	virtual action take_action(const board& after, action prev, int& next_tile) {
 		std::shuffle(space.begin(), space.end(), engine);
 		std::shuffle(bag.begin(), bag.end(), engine);
 
-		board::cell tile;
-		// choose a tile
+		board::cell tile = next_tile;
+		// for the first place
+		if (tile == 0) {
+			tile = popup(engine);
+			tile_bag ^= (1 << tile);
+		}
+		// choose next tile
 		for (int t : bag) {
 			if (tile_bag & (1 << t)) {
-				tile = t;
+				next_tile = t;
+				tile_bag ^= (1 << next_tile);
+				if (tile_bag == 0)	tile_bag = 0b1110;
 				break;
 			}
 		}
@@ -102,6 +114,7 @@ public:
 private:
 	std::array<int, 16> space;
 	std::array<int, 3> bag;
+	int tile_bag;
 	std::uniform_int_distribution<int> popup;
 };
 
@@ -114,7 +127,7 @@ public:
 	player(const std::string& args = "") : random_agent("name=dummy role=player " + args),
 		opcode({ 0, 1, 2, 3 }) {}
 
-	virtual action take_action(const board& before, action prev, int tile_bag) {
+	virtual action take_action(const board& before, action prev, int& next_tile) {
 		std::shuffle(opcode.begin(), opcode.end(), engine);
 		for (int op : opcode) {
 			board::reward reward = board(before).slide(op);

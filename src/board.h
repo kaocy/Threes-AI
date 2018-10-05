@@ -56,7 +56,7 @@ public:
 		if (pos >= 16) return -1;
 		if (tile != 1 && tile != 2 && tile != 3) return -1;
 		operator()(pos) = tile;
-		return 0;
+		return tile == 3 ? 3 : 0;
 	}
 
 	/**
