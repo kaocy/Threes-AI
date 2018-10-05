@@ -128,7 +128,8 @@ public:
 		opcode({ 0, 1, 2, 3 }) {}
 
 	virtual action take_action(const board& before, action prev, int& next_tile) {
-		std::shuffle(opcode.begin(), opcode.end(), engine);
+		std::shuffle(opcode.begin(), opcode.begin() + 2, engine);
+		std::shuffle(opcode.begin() + 2, opcode.end(), engine);
 		for (int op : opcode) {
 			board::reward reward = board(before).slide(op);
 			if (reward != -1) return action::slide(op);
