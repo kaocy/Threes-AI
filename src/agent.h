@@ -55,9 +55,9 @@ protected:
 
 /**
  * random environment
- * add a new random tile to an empty cell
- * 2-tile: 90%
- * 4-tile: 10%
+ * add a new random tile to an empty cell from tile bag
+ * tile bag contain 1, 2, 3 tile
+ * once the tile bag is empty, reset it
  */
 class rndenv : public random_agent {
 public:
@@ -89,14 +89,14 @@ public:
 				break;
 			}
 		}
-		// for first 9 place
+		// choose position for first 9 place
 		if (prev.type() == action::place::type) {
 			for (int pos : space) {
 				if (after(pos) != 0) continue;
 				return action::place(pos, tile);
 			}
 		}
-		// for place after slide
+		// choose position for place after slide
 		else {
 			int slide_op = prev.event() & 0b11;
 			for (int pos : space) {
@@ -120,7 +120,7 @@ private:
 
 /**
  * dummy player
- * select a legal action randomly
+ * select a legal action with up and right slide in priority
  */
 class player : public random_agent {
 public:

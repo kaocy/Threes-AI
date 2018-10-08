@@ -5,7 +5,7 @@
 #include "utilities.h"
 
 /**
- * array-based board for 2048
+ * array-based board for threes
  *
  * index (1-d form):
  *  (0)  (1)  (2)  (3)
@@ -50,7 +50,7 @@ public:
 
 	/**
 	 * place a tile (index value) to the specific position (1-d form index)
-	 * return 0 if the action is valid, or -1 if not
+	 * return 3(tile is 3) or 0(tile is 1, 2) if the action is valid, or -1 if not
 	 */
 	reward place(unsigned pos, cell tile) {
 		if (pos >= 16) return -1;
@@ -60,7 +60,7 @@ public:
 	}
 
 	/**
-	 * apply an action to the board
+	 * apply slide to the board
 	 * return the reward of the action, or -1 if the action is illegal
 	 */
 	reward slide(unsigned opcode) {

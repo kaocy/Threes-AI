@@ -1,5 +1,6 @@
 #pragma once
 
+// for tile conversion
 int tile_table[15] = { 0, 1, 2, 3, 6, 12, 24, 48, 96, 192, 384, 768, 1536, 3072, 6144 };
 
 int power(int x, int y) {

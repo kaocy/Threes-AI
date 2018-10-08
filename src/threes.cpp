@@ -1,6 +1,9 @@
 /**
- * Basic Environment for Game 2048
- * use 'g++ -std=c++11 -O3 -g -o 2048 2048.cpp' to compile the source
+ * Basic Environment for Game threes
+ * use 'g++ -std=c++11 -O3 -g -Wall -fmessage-length=0 -o threes threes.cpp' to compile the source
+ *
+ * Github Repository URL
+ * https://github.com/lcd78706/Threes-AI/
  *
  * Computer Games and Intelligence (CGI) Lab, NCTU, Taiwan
  * http://www.aigames.nctu.edu.tw
