@@ -48,22 +48,44 @@ protected:
  */
 class weight_agent : public agent {
 public:
-	weight_agent(const std::string& args = "") : agent(args) {
+	weight_agent(const std::string& args = "") : 
+		agent(args), alpha(0.1f), tuple_num(8), tuple_length(4) {
+		if (meta.find("alpha") != meta.end())
+			alpha = float(meta["alpha"]);
 		if (meta.find("init") != meta.end()) // pass init=... to initialize the weight
 			init_weights(meta["init"]);
 		if (meta.find("load") != meta.end()) // pass load=... to load from a specific file
 			load_weights(meta["load"]);
+		else if (meta.find("init") == meta.end())
+			init_weights("0");
 	}
 	virtual ~weight_agent() {
 		if (meta.find("save") != meta.end()) // pass save=... to save to a specific file
 			save_weights(meta["save"]);
 	}
 
+	virtual void open_episode(const std::string& flag = "") {
+		record.clear();
+	}
+
+	virtual void close_episode(const std::string& flag = "") {
+		after_state last = record[ record.size()-1 ];
+		train_weights(last.b, last.b, 0);
+		for(int i = record.size() - 2; i >= 0; i--){
+			after_state current = record[i];
+	        after_state next = record[i + 1];
+	        train_weights(current.b, next.b, next.reward);
+	    }
+	}
+
+	virtual action take_action(const board& b, action prev, int& next_tile) { return action(); }
+
 protected:
 	virtual void init_weights(const std::string& info) {
 		net.emplace_back(65536); // create an empty weight table with size 65536
 		net.emplace_back(65536); // create an empty weight table with size 65536
 		// now net.size() == 2; net[0].size() == 65536; net[1].size() == 65536
+
 	}
 	virtual void load_weights(const std::string& path) {
 		std::ifstream in(path, std::ios::in | std::ios::binary);
@@ -83,24 +105,107 @@ protected:
 		out.close();
 	}
 
+	virtual void train_weights(const board& current, const board& next, const int reward = 0) {
+		float td_target, update_value;
+		if (current == next && reward == 0) {
+			td_target = 0.0;
+		}
+		else {
+			td_target = reward + state_approximation(next);
+		}
+		update_value = alpha * (td_target - state_approximation(current));
+		for (int i = 0; i < tuple_num; i++) {
+			//std::cout << tuple_index(current, i) << " " << net[table_index(i)][tuple_index(current, i)] << std::endl;
+			net[table_index(i)][tuple_index(current, i)] += update_value;
+			//net[table_index(i)][tuple_index(current, i, true)] += update_value;
+		}
+	}
+
+	float state_approximation(const board& b) {
+		float value = 0;
+		for (int i = 0; i < tuple_num; i++) {
+			value += net[table_index(i)][tuple_index(b, i)];
+		}
+		return value;
+	}
+
+	int table_index(int index) {
+		if (index == 0 || index == 3)	return 0;
+		if (index == 4 || index == 7)	return 0;
+		else	return 1;
+	}
+
+	int tuple_index(board b, int index, bool flag=false) {
+		int result = 0;
+		if (index >= 4)	b.rotate_left();
+		index %= 4;
+		if (flag) for (int i = tuple_length-1; i >=0; i--) {
+			int tile = b[index][i];		
+			result <<= 4;
+			result |= tile;
+		}
+		else for (int i = 0; i < tuple_length; i++) {
+			int tile = b[index][i];		
+			result <<= 4;
+			result |= tile;
+		}
+		return result;
+	}
+
+protected:
+	struct after_state {
+		board b;
+		int reward;
+		after_state(board b = {}, int reward = 0) : b(b), reward(reward) {}
+	};
+	std::vector<after_state> record;
+
 protected:
 	std::vector<weight> net;
+	float alpha;
+	int tuple_num;
+	int tuple_length;
 };
 
 /**
- * base agent for agents with a learning rate
+ * dummy player
+ * select a legal action with up and right slide in priority
  */
-class learning_agent : public agent {
+class player : public weight_agent {
 public:
-	learning_agent(const std::string& args = "") : agent(args), alpha(0.1f) {
-		if (meta.find("alpha") != meta.end())
-			alpha = float(meta["alpha"]);
-	}
-	virtual ~learning_agent() {}
+	player(const std::string& args = "") : 
+		weight_agent("name=dummy role=player " + args),
+		opcode({ 0, 1, 2, 3 }) {}
 
-protected:
-	float alpha;
+	virtual action take_action(const board& before, action prev, int& next_tile) {
+		float best_value = -999999999.0;
+		int best_op = -1, best_reward;
+		board best_state;
+		for (int op : opcode) {
+			board tmp = board(before);
+			board::reward reward = tmp.slide(op);		
+			if (reward != -1) {
+				float value = reward + state_approximation(tmp);
+				if (value > best_value) {
+					best_value = value;
+					best_reward = reward;
+					best_op = op;
+					best_state = tmp;
+				}
+			}
+		}
+		//std::cout << best_reward << " " << best_value << std::endl;
+		if (best_op != -1) {
+			record.emplace_back(best_state, best_reward);
+			return action::slide(best_op);
+		}
+		return action();
+	}
+
+private:
+	std::array<int, 4> opcode;
 };
+
 
 class random_agent : public agent {
 public:
@@ -177,27 +282,4 @@ private:
 	std::array<int, 3> bag;
 	int tile_bag;
 	std::uniform_int_distribution<int> popup;
-};
-
-/**
- * dummy player
- * select a legal action with up and right slide in priority
- */
-class player : public random_agent {
-public:
-	player(const std::string& args = "") : random_agent("name=dummy role=player " + args),
-		opcode({ 0, 1, 2, 3 }) {}
-
-	virtual action take_action(const board& before, action prev, int& next_tile) {
-		std::shuffle(opcode.begin(), opcode.begin() + 2, engine);
-		std::shuffle(opcode.begin() + 2, opcode.end(), engine);
-		for (int op : opcode) {
-			board::reward reward = board(before).slide(op);
-			if (reward != -1) return action::slide(op);
-		}
-		return action();
-	}
-
-private:
-	std::array<int, 4> opcode;
 };
