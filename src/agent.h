@@ -82,8 +82,9 @@ public:
 
 protected:
 	virtual void init_weights(const std::string& info) {
-		net.emplace_back(65536); // create an empty weight table with size 65536
-		net.emplace_back(65536); // create an empty weight table with size 65536
+		for (int i=0; i<8; i++)	net.emplace_back(65536);
+		// net.emplace_back(65536); // create an empty weight table with size 65536
+		// net.emplace_back(65536); // create an empty weight table with size 65536
 		// now net.size() == 2; net[0].size() == 65536; net[1].size() == 65536
 
 	}
@@ -116,17 +117,29 @@ protected:
 		update_value = alpha * (td_target - state_approximation(current));
 		for (int i = 0; i < tuple_num; i++) {
 			//std::cout << tuple_index(current, i) << " " << net[table_index(i)][tuple_index(current, i)] << std::endl;
-			net[table_index(i)][tuple_index(current, i)] += update_value;
+			net[i%4][tuple_index(current, i)] += update_value;
+			net[i%4+4][tuple_index(current, i, true)] += update_value;
 			//net[table_index(i)][tuple_index(current, i, true)] += update_value;
 		}
 	}
 
 	float state_approximation(const board& b) {
-		float value = 0;
-		for (int i = 0; i < tuple_num; i++) {
-			value += net[table_index(i)][tuple_index(b, i)];
+		float value1 = 0.0, value2 = 0.0;
+		float horizontal;
+		float vertical;
+		for (int i = 0; i < 4; i++) {
+			value1 += net[i][tuple_index(b, i)];
+			value2 += net[i+4][tuple_index(b, i, true)];
 		}
-		return value;
+		horizontal = std::max(value1, value2);
+
+		value1 = value2 = 0.0;
+		for (int i = 4; i < 8; i++) {
+			value1 += net[i-4][tuple_index(b, i)];
+			value2 += net[i][tuple_index(b, i, true)];
+		}
+		vertical = std::max(value1, value2);
+		return horizontal + vertical;
 	}
 
 	int table_index(int index) {
