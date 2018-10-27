@@ -49,7 +49,7 @@ protected:
 class weight_agent : public agent {
 public:
 	weight_agent(const std::string& args = "") : 
-		agent(args), alpha(0.1f), tuple_num(8), tuple_length(4) {
+		agent(args), alpha(0.1f), tuple_num(4), tuple_length(6) {
 		if (meta.find("alpha") != meta.end())
 			alpha = float(meta["alpha"]);
 		if (meta.find("init") != meta.end()) // pass init=... to initialize the weight
@@ -58,6 +58,11 @@ public:
 			load_weights(meta["load"]);
 		else if (meta.find("init") == meta.end())
 			init_weights("0");
+
+		indices.push_back({0, 4, 8, 12, 9, 13});
+		indices.push_back({1, 5, 9, 13, 10, 14});
+		indices.push_back({1, 5, 9, 2, 6, 10});
+		indices.push_back({2, 6, 10, 3, 7, 11});
 	}
 	virtual ~weight_agent() {
 		if (meta.find("save") != meta.end()) // pass save=... to save to a specific file
@@ -82,11 +87,8 @@ public:
 
 protected:
 	virtual void init_weights(const std::string& info) {
-		for (int i=0; i<8; i++)	net.emplace_back(65536);
-		// net.emplace_back(65536); // create an empty weight table with size 65536
-		// net.emplace_back(65536); // create an empty weight table with size 65536
-		// now net.size() == 2; net[0].size() == 65536; net[1].size() == 65536
-
+		for (int i = 0; i < tuple_num; i++)
+			net.emplace_back(1 << 24); // create an empty weight table with size 16^6
 	}
 	virtual void load_weights(const std::string& path) {
 		std::ifstream in(path, std::ios::in | std::ios::binary);
@@ -108,6 +110,8 @@ protected:
 
 	virtual void train_weights(const board& current, const board& next, const int reward = 0) {
 		float td_target, update_value;
+
+		// for the final state
 		if (current == next && reward == 0) {
 			td_target = 0.0;
 		}
@@ -115,50 +119,36 @@ protected:
 			td_target = reward + state_approximation(next);
 		}
 		update_value = alpha * (td_target - state_approximation(current));
-		for (int i = 0; i < tuple_num; i++) {
-			//std::cout << tuple_index(current, i) << " " << net[table_index(i)][tuple_index(current, i)] << std::endl;
-			net[i%4][tuple_index(current, i)] += update_value;
-			net[i%4+4][tuple_index(current, i, true)] += update_value;
-			//net[table_index(i)][tuple_index(current, i, true)] += update_value;
+
+		board tmp(current);
+		for (int k = 0; k < 4; k++) {
+			if (k > 0)	tmp.rotate_right();
+			for (int i = 0; i < tuple_num; i++) net[i][tuple_index(tmp, i)] += update_value;
+			tmp.reflect_vertical();
+			for (int i = 0; i < tuple_num; i++) net[i][tuple_index(tmp, i)] += update_value;
+			tmp.reflect_vertical();
 		}
 	}
 
 	float state_approximation(const board& b) {
-		float value1 = 0.0, value2 = 0.0;
-		float horizontal;
-		float vertical;
-		for (int i = 0; i < 4; i++) {
-			value1 += net[i][tuple_index(b, i)];
-			value2 += net[i+4][tuple_index(b, i, true)];
+		float value = 0.0;
+		board tmp(b);
+		for (int k = 0; k < 4; k++) {
+			if (k > 0)	tmp.rotate_right();
+			for (int i = 0; i < tuple_num; i++) value += net[i][tuple_index(tmp, i)];
+			tmp.reflect_vertical();
+			for (int i = 0; i < tuple_num; i++) value += net[i][tuple_index(tmp, i)];
+			tmp.reflect_vertical();
 		}
-		horizontal = std::max(value1, value2);
-
-		value1 = value2 = 0.0;
-		for (int i = 4; i < 8; i++) {
-			value1 += net[i-4][tuple_index(b, i)];
-			value2 += net[i][tuple_index(b, i, true)];
-		}
-		vertical = std::max(value1, value2);
-		return horizontal + vertical;
+		return value;
 	}
 
-	int table_index(int index) {
-		if (index == 0 || index == 3)	return 0;
-		if (index == 4 || index == 7)	return 0;
-		else	return 1;
-	}
-
-	int tuple_index(board b, int index, bool flag=false) {
+	// return the tuple index in weight table
+	int tuple_index(const board& b, int index) {
 		int result = 0;
-		if (index >= 4)	b.rotate_left();
-		index %= 4;
-		if (flag) for (int i = tuple_length-1; i >=0; i--) {
-			int tile = b[index][i];		
-			result <<= 4;
-			result |= tile;
-		}
-		else for (int i = 0; i < tuple_length; i++) {
-			int tile = b[index][i];		
+		for (int i = 0; i < tuple_length; i++) {
+			int x = indices[index][i];
+			int tile = b[x / 4][x % 4];
 			result <<= 4;
 			result |= tile;
 		}
@@ -174,6 +164,7 @@ protected:
 	std::vector<after_state> record;
 
 protected:
+	std::vector<std::vector<int>> indices;
 	std::vector<weight> net;
 	float alpha;
 	int tuple_num;
@@ -194,9 +185,11 @@ public:
 		float best_value = -999999999.0;
 		int best_op = -1, best_reward;
 		board best_state;
+
+		// choose the best slide op
 		for (int op : opcode) {
 			board tmp = board(before);
-			board::reward reward = tmp.slide(op);		
+			board::reward reward = tmp.slide(op);
 			if (reward != -1) {
 				float value = reward + state_approximation(tmp);
 				if (value > best_value) {
@@ -207,7 +200,6 @@ public:
 				}
 			}
 		}
-		//std::cout << best_reward << " " << best_value << std::endl;
 		if (best_op != -1) {
 			record.emplace_back(best_state, best_reward);
 			return action::slide(best_op);
