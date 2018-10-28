@@ -62,6 +62,9 @@ int main(int argc, const char* argv[]) {
 	rndenv evil(evil_args);
 
 	while (!stat.is_finished()) {
+		if (stat.episode_count() % 400000 == 0 && stat.episode_count() >= 400000)
+			play.reduce_learning_rate();
+
 		play.open_episode("~:" + evil.name());
 		evil.open_episode(play.name() + ":~");
 		stat.open_episode(play.name() + ":" + evil.name());

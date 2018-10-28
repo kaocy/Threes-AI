@@ -49,7 +49,7 @@ protected:
 class weight_agent : public agent {
 public:
 	weight_agent(const std::string& args = "") : 
-		agent(args), alpha(0.1f), tuple_num(4), tuple_length(6) {
+		agent(args), alpha(0.003125f), tuple_num(4), tuple_length(6) {
 		if (meta.find("alpha") != meta.end())
 			alpha = float(meta["alpha"]);
 		if (meta.find("init") != meta.end()) // pass init=... to initialize the weight
@@ -74,6 +74,8 @@ public:
 	}
 
 	virtual void close_episode(const std::string& flag = "") {
+		if (record.size() <= 0)	return ;
+
 		after_state last = record[ record.size()-1 ];
 		train_weights(last.b, last.b, 0);
 		for(int i = record.size() - 2; i >= 0; i--){
@@ -84,6 +86,8 @@ public:
 	}
 
 	virtual action take_action(const board& b, action prev, int& next_tile) { return action(); }
+
+	virtual void reduce_learning_rate() { alpha /= 2.0; }
 
 protected:
 	virtual void init_weights(const std::string& info) {
@@ -140,7 +144,7 @@ protected:
 			for (int i = 0; i < tuple_num; i++) value += net[i][tuple_index(tmp, i)];
 			tmp.reflect_vertical();
 		}
-		return value;
+		return value / 8.0;
 	}
 
 	// return the tuple index in weight table
@@ -189,12 +193,12 @@ public:
 		// choose the best slide op
 		for (int op : opcode) {
 			board tmp = board(before);
-			board::reward reward = tmp.slide(op);
-			if (reward != -1) {
-				float value = reward + state_approximation(tmp);
+			board::reward immediate_reward = tmp.slide(op);
+			if (immediate_reward != -1) {
+				float value = immediate_reward + state_approximation(tmp);
 				if (value > best_value) {
 					best_value = value;
-					best_reward = reward;
+					best_reward = immediate_reward;
 					best_op = op;
 					best_state = tmp;
 				}

@@ -110,7 +110,10 @@ public:
 	void close_episode(const std::string& flag = "") {
 		data.back().close_episode(flag);
 		if (count % block == 0) show();
+		// if (count % 50000 == 0) show();
 	}
+
+	int episode_count() { return count; }
 
 	episode& at(size_t i) {
 		auto it = data.begin();
