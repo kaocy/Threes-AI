@@ -1,9 +1,5 @@
 .DS_store
-*/.DS_store
-**/.DS_store
-
-URL.txt
-stat.txt
-weights.bin
+*.txt
+*.bin
 src/threes
 src/threes.dSYM
