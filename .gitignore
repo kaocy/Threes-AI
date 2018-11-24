@@ -1,5 +1,5 @@
 .DS_store
 *.txt
 *.bin
-src/threes
-src/threes.dSYM
+threes
+threes.dSYM
