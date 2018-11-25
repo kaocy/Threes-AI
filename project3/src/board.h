@@ -97,31 +97,44 @@ public:
         }
         return (*this != prev) ? score : -1;
     }
+
     reward slide_right() {
         reflect_horizontal();
         reward score = slide_left();
         reflect_horizontal();
         return score;
     }
-    reward slide_up() {
-        rotate_right();
-        reward score = slide_right();
-        rotate_left();
-        return score;
-    }
-    reward slide_down() {
-        rotate_right();
-        reward score = slide_left();
-        rotate_left();
-        return score;
-    }
 
-    void transpose() {
-        for (int r = 0; r < 2; r++) {
-            for (int c = r + 1; c < 3; c++) {
-                std::swap(tile[r][c], tile[c][r]);
+    reward slide_up() {
+        board prev = *this;
+        reward score = 0;
+        for (int c = 0; c < 3; c++) {
+            cell &tile1 = tile[0][c], &tile2 = tile[1][c];
+            if (tile2 == 0) continue;
+            if (tile1 != 0) {
+                if (tile1 > 2 && tile1 == tile2) {
+                    score += power(3, tile1 - 2);
+                    tile1++;
+                    tile2 = 0;
+                } else if (tile + hold == 3) {
+                    score += 3;
+                    tile1 = 3;
+                    tile2 = 0;
+                }
+            }
+            else {
+                tile1 = tile2;
+                tile2 = 0;
             }
         }
+        return (*this != prev) ? score : -1;
+    }
+    
+    reward slide_down() {
+        reflect_vertical();
+        reward score = slide_up();
+        reflect_vertical();
+        return score;
     }
 
     void reflect_horizontal() {
@@ -136,21 +149,6 @@ public:
         }
     }
 
-    /**
-     * rotate the board clockwise by given times
-     */
-    void rotate(int r = 1) {
-        switch (((r % 4) + 4) % 4) {
-            default:
-            case 0: break;
-            case 1: rotate_right(); break;
-            case 2: reverse(); break;
-            case 3: rotate_left(); break;
-        }
-    }
-
-    void rotate_right() { transpose(); reflect_horizontal(); } // clockwise
-    void rotate_left() { transpose(); reflect_vertical(); } // counterclockwise
     void reverse() { reflect_horizontal(); reflect_vertical(); }
 
 public:
