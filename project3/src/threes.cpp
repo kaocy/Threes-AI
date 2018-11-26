@@ -31,7 +31,7 @@ int main(int argc, const char* argv[]) {
             precision = std::stol(para.substr(para.find("=") + 1));
         }
     }
-
+    
     solver solve(solve_args);
     board state;
     state_type type;

@@ -84,9 +84,9 @@ protected:
 class action::place : public action {
 public:
     static constexpr unsigned type = type_flag('p');
-    place(unsigned pos, unsigned tile) : action(place::type | (pos & 0x06) | (std::min(tile, 35u) << 4)) {}
+    place(unsigned pos, unsigned tile) : action(place::type | (pos & 0xf) | (std::min(tile, 35u) << 4)) {}
     place(const action& a = {}) : action(a) {}
-    unsigned position() const { return event() & 0x06; }
+    unsigned position() const { return event() & 0xf; }
     unsigned tile() const { return event() >> 4; }
 public:
     board::reward apply(board& b) const {

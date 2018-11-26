@@ -19,6 +19,8 @@ public:
     typedef std::array<row, 2> grid;
     typedef uint64_t data;
     typedef int reward;
+    static const int MAX_TILE = 9;
+    static const int MAX_INDEX = 9 * 9 * 9 * 9 * 9 * 9;
 
 public:
     board() : tile(), attr(0) {}
@@ -36,6 +38,15 @@ public:
     data info() const { return attr; }
     data info(data dat) { data old = attr; attr = dat; return old; }
 
+    int index() const {
+        int res = 0;
+        for (int i = 0; i < 6; i++) {
+            res *= board::MAX_TILE;
+            res += tile[i / 3][i % 3];
+        }
+        return res;
+    }
+
 public:
     bool operator ==(const board& b) const { return tile == b.tile; }
     bool operator < (const board& b) const { return tile <  b.tile; }
@@ -52,6 +63,7 @@ public:
      */
     reward place(unsigned pos, cell tile) {
         if (pos >= 6) return -1;
+        if (operator()(pos) != 0)   return -1;
         if (tile != 1 && tile != 2 && tile != 3) return -1;
         operator()(pos) = tile;
         return tile == 3 ? 3 : 0;
@@ -109,22 +121,22 @@ public:
         board prev = *this;
         reward score = 0;
         for (int c = 0; c < 3; c++) {
-            cell &tile1 = tile[0][c], &tile2 = tile[1][c];
+            cell tile1 = tile[0][c], tile2 = tile[1][c];
             if (tile2 == 0) continue;
             if (tile1 != 0) {
                 if (tile1 > 2 && tile1 == tile2) {
                     score += power(3, tile1 - 2);
-                    tile1++;
-                    tile2 = 0;
-                } else if (tile + hold == 3) {
+                    tile[0][c]++;
+                    tile[1][c] = 0;
+                } else if (tile1 + tile2 == 3) {
                     score += 3;
-                    tile1 = 3;
-                    tile2 = 0;
+                    tile[0][c] = 3;
+                    tile[1][c] = 0;
                 }
             }
             else {
-                tile1 = tile2;
-                tile2 = 0;
+                tile[0][c] = tile[1][c];
+                tile[1][c] = 0;
             }
         }
         return (*this != prev) ? score : -1;
@@ -163,7 +175,7 @@ public:
             while (!std::isdigit(in.peek()) && in.good()) in.ignore(1);
             in >> b(i);
             for (int j = 0; j < 15; j++) {
-                f (tile_table[j] == b(i))	b(i) = j;
+                if (tile_table[j] == b(i))	b(i) = j;
             }
         }
         return in;
