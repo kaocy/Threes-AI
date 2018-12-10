@@ -18,17 +18,13 @@ public:
     episode() : 
         ep_state(initial_state()), 
         ep_score(0), 
-        ep_time(0),
-        ep_next_tile(0) 
+        ep_time(0)
         { ep_moves.reserve(10000); }
 
 public:
     board& state() { return ep_state; }
     const board& state() const { return ep_state; }
     board::reward score() const { return ep_score; }
-    int next_tile() { return ep_next_tile; }
-    void set_next_tile(int tile) { ep_next_tile = tile; }
-
     void open_episode(const std::string& tag) {
         ep_open = { tag, millisec() };
     }
@@ -181,7 +177,6 @@ private:
     board::reward ep_score;
     std::vector<move> ep_moves;
     time_t ep_time;
-    int ep_next_tile;
 
     meta ep_open;
     meta ep_close;

@@ -23,7 +23,7 @@ public:
     virtual ~agent() {}
     virtual void open_episode(const std::string& flag = "") {}
     virtual void close_episode(const std::string& flag = "") {}
-    virtual action take_action(const board& b, action prev, int& next_tile) { return action(); }
+    virtual action take_action(board& b, action prev) { return action(); }
     virtual bool check_for_win(const board& b) { return false; }
 
 public:
@@ -85,7 +85,7 @@ public:
         }
     }
 
-    virtual action take_action(const board& b, action prev, int& next_tile) { return action(); }
+    virtual action take_action(board& b, action prev) { return action(); }
 
     virtual void reduce_learning_rate() { alpha /= 2.0; }
 
@@ -185,7 +185,7 @@ public:
         weight_agent("name=dummy role=player " + args),
         opcode({ 0, 1, 2, 3 }) {}
 
-    virtual action take_action(const board& before, action prev, int& next_tile) {
+    virtual action take_action(board& before, action prev) {
         float best_value = -999999999.0;
         int best_op = -1, best_reward;
         board best_state;
@@ -245,11 +245,11 @@ public:
 
     virtual void open_episode(const std::string& flag = "") { tile_bag = (1 << 12) - 1; } 
 
-    virtual action take_action(const board& after, action prev, int& next_tile) {
+    virtual action take_action(board& after, action prev) {
         std::shuffle(space.begin(), space.end(), engine);
         std::shuffle(bag.begin(), bag.end(), engine);
 
-        board::cell tile = next_tile;
+        board::cell tile = after.info();
         // for the first place
         if (tile == 0) {
             tile = popup(engine);
@@ -259,8 +259,8 @@ public:
         // choose next tile
         for (int t : bag) {
             if (tile_bag & (1 << t)) {
-                next_tile = t / 4 + 1;
-                tile_bag ^= (1 << t);
+                after.info(t / 4 + 1);
+                tile_bag ^= (1 << t); 
                 if (tile_bag == 0)  tile_bag = (1 << 12) - 1;
                 break;
             }

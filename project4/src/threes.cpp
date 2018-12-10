@@ -74,10 +74,7 @@ int main(int argc, const char* argv[]) {
 
         while (true) {
             agent& who = game.take_turns(play, evil);
-            int next_tile = game.next_tile();
-            action move = who.take_action(game.state(), prev, next_tile);
-
-            game.set_next_tile(next_tile);
+            action move = who.take_action(game.state(), prev);
             prev = action(move);
 
             if (game.apply_action(move) != true) break;
