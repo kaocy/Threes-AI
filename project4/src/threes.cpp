@@ -20,85 +20,85 @@
 #include "statistic.h"
 
 int main(int argc, const char* argv[]) {
-	std::cout << "Threes-Demo: ";
-	std::copy(argv, argv + argc, std::ostream_iterator<const char*>(std::cout, " "));
-	std::cout << std::endl << std::endl;
+    std::cout << "Threes-Demo: ";
+    std::copy(argv, argv + argc, std::ostream_iterator<const char*>(std::cout, " "));
+    std::cout << std::endl << std::endl;
 
-	size_t total = 1000, block = 0, limit = 0;
-	std::string play_args, evil_args;
-	std::string load, save;
-	bool summary = false;
-	for (int i = 1; i < argc; i++) {
-		std::string para(argv[i]);
-		if (para.find("--total=") == 0) {
-			total = std::stoull(para.substr(para.find("=") + 1));
-		} else if (para.find("--block=") == 0) {
-			block = std::stoull(para.substr(para.find("=") + 1));
-		} else if (para.find("--limit=") == 0) {
-			limit = std::stoull(para.substr(para.find("=") + 1));
-		} else if (para.find("--play=") == 0) {
-			play_args = para.substr(para.find("=") + 1);
-		} else if (para.find("--evil=") == 0) {
-			evil_args = para.substr(para.find("=") + 1);
-		} else if (para.find("--load=") == 0) {
-			load = para.substr(para.find("=") + 1);
-		} else if (para.find("--save=") == 0) {
-			save = para.substr(para.find("=") + 1);
-		} else if (para.find("--summary") == 0) {
-			summary = true;
-		}
-	}
+    size_t total = 1000, block = 0, limit = 0;
+    std::string play_args, evil_args;
+    std::string load, save;
+    bool summary = false;
+    for (int i = 1; i < argc; i++) {
+        std::string para(argv[i]);
+        if (para.find("--total=") == 0) {
+            total = std::stoull(para.substr(para.find("=") + 1));
+        } else if (para.find("--block=") == 0) {
+            block = std::stoull(para.substr(para.find("=") + 1));
+        } else if (para.find("--limit=") == 0) {
+            limit = std::stoull(para.substr(para.find("=") + 1));
+        } else if (para.find("--play=") == 0) {
+            play_args = para.substr(para.find("=") + 1);
+        } else if (para.find("--evil=") == 0) {
+            evil_args = para.substr(para.find("=") + 1);
+        } else if (para.find("--load=") == 0) {
+            load = para.substr(para.find("=") + 1);
+        } else if (para.find("--save=") == 0) {
+            save = para.substr(para.find("=") + 1);
+        } else if (para.find("--summary") == 0) {
+            summary = true;
+        }
+    }
 
-	statistic stat(total, block, limit);
+    statistic stat(total, block, limit);
 
-	if (load.size()) {
-		std::ifstream in(load, std::ios::in);
-		in >> stat;
-		in.close();
-		summary |= stat.is_finished();
-	}
+    if (load.size()) {
+        std::ifstream in(load, std::ios::in);
+        in >> stat;
+        in.close();
+        summary |= stat.is_finished();
+    }
 
-	player play(play_args);
-	rndenv evil(evil_args);
+    player play(play_args);
+    rndenv evil(evil_args);
 
-	while (!stat.is_finished()) {
-		if (stat.episode_count() % 400000 == 0 && stat.episode_count() >= 400000)
-			play.reduce_learning_rate();
+    while (!stat.is_finished()) {
+        if (stat.episode_count() % 400000 == 0 && stat.episode_count() >= 400000)
+            play.reduce_learning_rate();
 
-		play.open_episode("~:" + evil.name());
-		evil.open_episode(play.name() + ":~");
-		stat.open_episode(play.name() + ":" + evil.name());
+        play.open_episode("~:" + evil.name());
+        evil.open_episode(play.name() + ":~");
+        stat.open_episode(play.name() + ":" + evil.name());
 
-		episode& game = stat.back();
-		action prev = action::place(0, 0);
+        episode& game = stat.back();
+        action prev = action::place(0, 0);
 
-		while (true) {
-			agent& who = game.take_turns(play, evil);
-			int next_tile = game.next_tile();
-			action move = who.take_action(game.state(), prev, next_tile);
+        while (true) {
+            agent& who = game.take_turns(play, evil);
+            int next_tile = game.next_tile();
+            action move = who.take_action(game.state(), prev, next_tile);
 
-			game.set_next_tile(next_tile);
-			prev = action(move);
+            game.set_next_tile(next_tile);
+            prev = action(move);
 
-			if (game.apply_action(move) != true) break;
-			if (who.check_for_win(game.state())) break;
-		}
-		agent& win = game.last_turns(play, evil);
+            if (game.apply_action(move) != true) break;
+            if (who.check_for_win(game.state())) break;
+        }
+        agent& win = game.last_turns(play, evil);
 
-		stat.close_episode(win.name());
-		play.close_episode(win.name());
-		evil.close_episode(win.name());
-	}
+        stat.close_episode(win.name());
+        play.close_episode(win.name());
+        evil.close_episode(win.name());
+    }
 
-	if (summary) {
-		stat.summary();
-	}
+    if (summary) {
+        stat.summary();
+    }
 
-	if (save.size()) {
-		std::ofstream out(save, std::ios::out | std::ios::trunc);
-		out << stat;
-		out.close();
-	}
+    if (save.size()) {
+        std::ofstream out(save, std::ios::out | std::ios::trunc);
+        out << stat;
+        out.close();
+    }
 
-	return 0;
+    return 0;
 }
