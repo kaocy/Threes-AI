@@ -23,7 +23,7 @@ public:
     typedef int reward;
 
 public:
-    board() : tile(), attr(0) {}
+    board() : tile(), attr(0), largest_tile(0), num_tile(0), num_bonus_tile(0) {}
     board(const grid& b, data v = 0) : tile(b), attr(v) {}
     board(const board& b) = default;
     board& operator =(const board& b) = default;
@@ -37,6 +37,13 @@ public:
 
     data info() const { return attr; }
     data info(data dat) { data old = attr; attr = dat; return old; }
+    cell get_largest() const { return largest_tile; }
+    void add_tile() { num_tile++; }
+    void add_bonus_tile() { num_bonus_tile++; }
+    bool can_place_bonus_tile() {
+        return largest_tile >= 7 &&
+               num_tile + 1 >= (num_bonus_tile + 1) * 21;
+    }
 
 public:
     bool operator ==(const board& b) const { return tile == b.tile; }
@@ -50,14 +57,13 @@ public:
 
     /**
      * place a tile (index value) to the specific position (1-d form index)
-     * return 3(tile is 3) or 0(tile is 1, 2) if the action is valid, or -1 if not
+     * return score(tile >= 3) or 0(tile is 1, 2) if the action is valid, or -1 if not
      */
     reward place(unsigned pos, cell tile) {
         if (pos >= 16) return -1;
         if (operator()(pos) != 0)   return -1;
-        if (tile != 1 && tile != 2 && tile != 3) return -1;
         operator()(pos) = tile;
-        return tile == 3 ? 3 : 0;
+        return tile >= 3 ? power(3, tile - 2) : 0;
     }
 
     /**
@@ -66,11 +72,11 @@ public:
      */
     reward slide(unsigned opcode) {
         switch (opcode & 0b11) {
-        case 0: return slide_up();
-        case 1: return slide_right();
-        case 2: return slide_down();
-        case 3: return slide_left();
-        default: return -1;
+            case 0: return slide_up();
+            case 1: return slide_right();
+            case 2: return slide_down();
+            case 3: return slide_left();
+            default: return -1;
         }
     }
 
@@ -87,6 +93,7 @@ public:
                         score += power(3, tile - 2);
                         row[c-1] = ++tile;
                         row[c] = 0;
+                        largest_tile = std::max(largest_tile, cell(row[c-1]));
                     } else if (tile + hold == 3) {
                         score += 3;
                         row[c-1] = 3;
@@ -173,4 +180,7 @@ public:
 private:
     grid tile;
     data attr;
+    cell largest_tile;
+    int num_tile;
+    int num_bonus_tile;
 };

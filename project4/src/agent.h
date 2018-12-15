@@ -5,10 +5,10 @@
 #include <map>
 #include <type_traits>
 #include <algorithm>
+#include <fstream>
 #include "board.h"
 #include "action.h"
 #include "weight.h"
-#include <fstream>
 
 class agent {
 public:
@@ -177,11 +177,11 @@ protected:
 
 /**
  * dummy player
- * select a legal action with up and right slide in priority
+ * select a legal action with best value
  */
 class player : public weight_agent {
 public:
-    player(const std::string& args = "") : 
+    player(const std::string& args = "") :
         weight_agent("name=dummy role=player " + args),
         opcode({ 0, 1, 2, 3 }) {}
 
@@ -236,14 +236,14 @@ protected:
  */
 class rndenv : public random_agent {
 public:
-    rndenv(const std::string& args = "") : 
+    rndenv(const std::string& args = "") :
         random_agent("name=random role=environment " + args),
         space({ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 }),
         bag({ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 }),
         tile_bag((1 << 12) - 1),
-        popup(0, 11) {}
+        popup(0, 20) {}
 
-    virtual void open_episode(const std::string& flag = "") { tile_bag = (1 << 12) - 1; } 
+    virtual void open_episode(const std::string& flag = "") { tile_bag = (1 << 12) - 1; }
 
     virtual action take_action(board& after, action prev) {
         std::shuffle(space.begin(), space.end(), engine);
@@ -252,19 +252,32 @@ public:
         board::cell tile = after.info();
         // for the first place
         if (tile == 0) {
-            tile = popup(engine);
+            tile = bag[0];
             tile_bag ^= (1 << tile);
             tile = tile / 4 + 1;
+            after.add_tile();
         }
-        // choose next tile
-        for (int t : bag) {
-            if (tile_bag & (1 << t)) {
-                after.info(t / 4 + 1);
-                tile_bag ^= (1 << t); 
-                if (tile_bag == 0)  tile_bag = (1 << 12) - 1;
-                break;
+
+        // choose next tile, with 1/21 probability to place bonus tile
+        if (after.can_place_bonus_tile() && popup(engine) == 0) {
+            // 6-tile to (Vmax/8)-tile
+            std::uniform_int_distribution<int> popup_bonus(4, after.get_largest() - 3);
+            after.info(popup_bonus(engine));
+            after.add_bonus_tile();
+            after.add_tile();
+        }
+        else {
+            for (int t : bag) {
+                if (tile_bag & (1 << t)) {
+                    after.info(t / 4 + 1);
+                    tile_bag ^= (1 << t);
+                    if (tile_bag == 0)  tile_bag = (1 << 12) - 1;
+                    break;
+                }
             }
+            after.add_tile();
         }
+
         // choose position for first 9 place
         if (prev.type() == action::place::type) {
             for (int pos : space) {
@@ -282,8 +295,8 @@ public:
                 if(slide_op == 3 && pos % 4 != 3)   continue;
                 if (after(pos) != 0) continue;
                 return action::place(pos, tile);
-            }           
-        }       
+            }
+        }
         return action();
     }
 
