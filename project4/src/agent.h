@@ -6,6 +6,7 @@
 #include <type_traits>
 #include <algorithm>
 #include <fstream>
+#include <cfloat>
 #include "board.h"
 #include "action.h"
 #include "weight.h"
@@ -159,6 +160,49 @@ protected:
         return result;
     }
 
+    float after_value(const board& after, int last_op, int level) {
+        if (level == 1) {
+            return state_approximation(after);
+        }
+
+        board::cell hint = after.info();
+        int count = 0;
+        float avg = 0.0;
+
+        for (int pos = 0; pos < 16; pos++) {
+            if ((last_op == 0) && (pos < 12))       continue;
+            if ((last_op == 1) && (pos % 4 != 0))   continue;
+            if ((last_op == 2) && (pos > 3))        continue;
+            if ((last_op == 3) && (pos % 4 != 3))   continue;
+            if (after(pos) != 0) continue;
+
+            board tmp(after);
+            board::reward reward = action::place(pos, hint).apply(tmp);
+
+            if (reward != -1) {
+                count++;
+                avg += before_value(tmp, level - 1) + reward;
+            }
+        }
+        return avg / count;
+    }
+
+    float before_value(const board& before, int level) {
+        float best = -FLT_MAX;
+        for (int op : {0, 1, 2, 3}) {
+            board tmp(before);
+            board::reward reward = tmp.slide(op);
+            if (reward != -1) {
+                float value = after_value(tmp, op, level - 1);
+                if (value + reward > best) {
+                    best = value + reward;
+                }
+            }
+        }
+
+        return best != -FLT_MAX ? best : 0.0;
+    }
+
 protected:
     struct after_state {
         board b;
@@ -186,7 +230,7 @@ public:
         opcode({ 0, 1, 2, 3 }) {}
 
     virtual action take_action(board& before, action prev) {
-        float best_value = -999999999.0;
+        float best_value = -FLT_MAX;
         int best_op = -1, best_reward;
         board best_state;
 
@@ -195,7 +239,7 @@ public:
             board tmp = board(before);
             board::reward immediate_reward = tmp.slide(op);
             if (immediate_reward != -1) {
-                float value = immediate_reward + state_approximation(tmp);
+                float value = immediate_reward + after_value(tmp, op, 3);
                 if (value > best_value) {
                     best_value = value;
                     best_reward = immediate_reward;
