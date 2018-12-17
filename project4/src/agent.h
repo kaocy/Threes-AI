@@ -88,12 +88,12 @@ public:
 
     virtual action take_action(board& b, action prev) { return action(); }
 
-    virtual void reduce_learning_rate() { alpha /= 2.0; }
+    virtual void reduce_learning_rate() { alpha *= 0.75; }
 
 protected:
     virtual void init_weights(const std::string& info) {
-        for (int i = 0; i < tuple_num; i++)
-            net.emplace_back(1 << 24); // create an empty weight table with size 16^6
+        for (int i = 0; i < tuple_num * 4; i++)
+            net.emplace_back(1 << 24); // create an empty weight table with size 16^6 * 4 hint tile
     }
     virtual void load_weights(const std::string& path) {
         std::ifstream in(path, std::ios::in | std::ios::binary);
@@ -115,6 +115,7 @@ protected:
 
     virtual void train_weights(const board& current, const board& next, const int reward = 0) {
         float td_target, update_value;
+        int hint = current.info() > 3 ? 0 : current.info();
 
         // for the final state
         if (current == next && reward == 0) {
@@ -128,21 +129,22 @@ protected:
         board tmp(current);
         for (int k = 0; k < 4; k++) {
             if (k > 0)  tmp.rotate_right();
-            for (int i = 0; i < tuple_num; i++) net[i][tuple_index(tmp, i)] += update_value;
+            for (int i = 0; i < tuple_num; i++) net[i * 4 + hint][tuple_index(tmp, i)] += update_value;
             tmp.reflect_vertical();
-            for (int i = 0; i < tuple_num; i++) net[i][tuple_index(tmp, i)] += update_value;
+            for (int i = 0; i < tuple_num; i++) net[i * 4 + hint][tuple_index(tmp, i)] += update_value;
             tmp.reflect_vertical();
         }
     }
 
     float state_approximation(const board& b) {
         float value = 0.0;
+        int hint = b.info() > 3 ? 0 : b.info();
         board tmp(b);
         for (int k = 0; k < 4; k++) {
             if (k > 0)  tmp.rotate_right();
-            for (int i = 0; i < tuple_num; i++) value += net[i][tuple_index(tmp, i)];
+            for (int i = 0; i < tuple_num; i++) value += net[i * 4 + hint][tuple_index(tmp, i)];
             tmp.reflect_vertical();
-            for (int i = 0; i < tuple_num; i++) value += net[i][tuple_index(tmp, i)];
+            for (int i = 0; i < tuple_num; i++) value += net[i * 4 + hint][tuple_index(tmp, i)];
             tmp.reflect_vertical();
         }
         return value / 8.0;
