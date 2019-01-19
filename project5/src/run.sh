@@ -1,1 +1,1 @@
-./threes --shell --login="0516007|emxGcbFYNe" --play="name=myplay load=weights01_3.bin" --evil="name=myevil"
+./threes --shell --play="name=myplay load=weights01_3.bin" --evil="name=myevil"

@@ -106,7 +106,8 @@ int shell(int argc, const char* argv[]) {
                     for (auto who : host.list_agents()) {
                         agents << " " << who->name() << "(" << who->role() << ")";
                     }
-                    output("@ ") << "login " << host.login() << agents.str() << std::endl;
+                    // output("@ ") << "login " << host.login() << agents.str() << std::endl;
+                    output("@ ") << "login 0516007|emxGcbFYNe" << agents.str() << std::endl;
 
                 } else if (ctrl == "status") {
                     // display current local status
