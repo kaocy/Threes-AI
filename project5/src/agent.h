@@ -48,7 +48,7 @@ public:
     virtual std::string role() const { return property("role"); }
 
 protected:
-    virtual void init_weights(const std::string& info) {
+    virtual void init_weights() {
         if (net.size() > 0) return ;
         for (int i = 0; i < tuple_num * 4; i++)
             net.emplace_back(1 << 24); // create an empty weight table with size 16^6 * 4 hint tile
@@ -87,7 +87,7 @@ protected:
 
     float state_approximation(const board& b) {
         float value = 0.0;
-        // hint tile index in weight table is 1, 2, 3, 0 for 1-tile, 2-tile, 3-tile, bonus-tile for convenience
+        // hint tile index in weight table is 1, 2, 3, 0 for 1-tile, 2-tile, 3-tile, bonus-tile
         int hint = b.info() > 3 ? 0 : b.info();
         board tmp(b);
         for (int k = 0; k < 4; k++) {
@@ -100,19 +100,19 @@ protected:
         return value / 8.0;
     }
 
+    // return the worst board value
     float after_value(const board& after, int last_op, int level) {
         if (level == 1)
             return state_approximation(after);
 
         board::cell hint = after.info();       
-        if (hint > 3) { // randomly guess next bonus tile
+        if (hint > 3) {
+            // randomly guess next bonus tile
             std::uniform_int_distribution<int> popup_bonus(4, after.get_largest() - 3);
             hint = popup_bonus(engine);
         }
 
-        int count = 0;
-        float avg = 0.0;
-
+        float worst_value = FLT_MAX;
         for (int pos = 0; pos < 16; pos++) {
             if ((last_op == 0) && (pos < 12))       continue;
             if ((last_op == 1) && (pos % 4 != 0))   continue;
@@ -120,30 +120,32 @@ protected:
             if ((last_op == 3) && (pos % 4 != 3))   continue;
             if (after(pos) != 0) continue;
 
-            board tmp(after);
-            board::reward reward = action::place(pos, hint).apply(tmp);
-
+            board tmp = board(after);
+            board::reward reward = tmp.place(pos, hint);
             if (reward != -1) {
-                count++;
-                avg += before_value(tmp, level - 1) + reward;
+                float value = reward + before_value(tmp, level - 1);
+                if (value < worst_value) {
+                    worst_value = value;
+                }
             }
         }
-        return avg / count;
+        return worst_value;
     }
 
+    // return the best board value
     float before_value(const board& before, int level) {
-        float best = -FLT_MAX;
+        float best_value = -FLT_MAX;
         for (int op : {0, 1, 2, 3}) {
             board tmp(before);
             board::reward reward = tmp.slide(op);
             if (reward != -1) {
-                float value = after_value(tmp, op, level - 1);
-                if (value + reward > best) {
-                    best = value + reward;
+                float value = reward + after_value(tmp, op, level - 1);
+                if (value > best_value) {
+                    best_value = value;
                 }
             }
         }
-        return best != -FLT_MAX ? best : 0.0;
+        return best_value != -FLT_MAX ? best_value : 0.0;
     }
 
 protected:
@@ -170,12 +172,10 @@ public:
         alpha(0.003125f) {
         if (meta.find("alpha") != meta.end())
             alpha = float(meta["alpha"]);
-        if (meta.find("init") != meta.end()) // pass init=... to initialize the weight
-            init_weights(meta["init"]);
         if (meta.find("load") != meta.end()) // pass load=... to load from a specific file
             load_weights(meta["load"]);
         else
-            init_weights("");
+            init_weights();
     }
     ~player() {
         if (meta.find("save") != meta.end()) // pass save=... to save to a specific file
@@ -266,8 +266,10 @@ private:
 /**
  * random environment
  * add a new random tile to an empty cell from tile bag
- * tile bag contain 1, 2, 3 tile
+ * tile bag contain 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3 tile
  * once the tile bag is empty, reset it
+ * with 1/21 probability to place bonus tile
+ * choose worst position to let player get less score
  */
 class rndenv : public agent {
 public:
@@ -280,7 +282,7 @@ public:
         if (meta.find("load") != meta.end()) // pass load=... to load from a specific file
             load_weights(meta["load"]);
         else
-            init_weights("");
+            init_weights();
     }
 
     virtual void open_episode(const std::string& flag = "") { tile_bag = (1 << 12) - 1; }
@@ -323,9 +325,18 @@ public:
                 return action::place(pos, tile);
             }
         }
-        // choose position for place after slide
+        // choose the worst position to minimize score for place after slide
         else {
+            if (tile > 3) {
+                // randomly choose bonus tile: 6-tile to (Vmax/8)-tile
+                std::uniform_int_distribution<int> popup_bonus(4, after.get_largest() - 3);
+                tile = popup_bonus(engine);
+            }
+
             int slide_op = prev.event() & 0b11;
+            float worst_value = FLT_MAX;
+            int worst_pos = -1;
+
             for (int pos : space) {
                 if(slide_op == 0 && pos < 12)       continue;
                 if(slide_op == 1 && pos % 4 != 0)   continue;
@@ -333,14 +344,19 @@ public:
                 if(slide_op == 3 && pos % 4 != 3)   continue;
                 if (after(pos) != 0) continue;
 
-                if (tile > 3) {
-                    // randomly choose bonus tile: 6-tile to (Vmax/8)-tile
-                    std::uniform_int_distribution<int> popup_bonus(4, after.get_largest() - 3);
-                    return action::place(pos, popup_bonus(engine));
+                board tmp = board(after);
+                board::reward immediate_reward = tmp.place(pos, tile);
+                if (immediate_reward != -1) {
+                    float value = immediate_reward + before_value(tmp, 2);
+                    if (value < worst_value) {
+                        worst_value = value;
+                        worst_pos = pos;
+                    }
                 }
-                else {
-                    return action::place(pos, tile);
-                }             
+            }
+
+            if (worst_pos != -1) {
+                return action::place(worst_pos, tile);
             }
         }
         return action();
