@@ -40,7 +40,7 @@ public:
     cell get_largest() const { return largest_tile; }
     void add_tile() { num_tile++; }
     void add_bonus_tile() { num_bonus_tile++; }
-    bool can_place_bonus_tile() {
+    bool can_place_bonus_tile() const {
         return largest_tile >= 7 &&
                num_tile + 1 >= (num_bonus_tile + 1) * 21;
     }

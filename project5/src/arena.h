@@ -75,8 +75,10 @@ public:
 
 public:
     bool register_agent(std::shared_ptr<agent> a) {
+        // std::cout << lounge.size() << std::endl;
         if (lounge.find(a->name()) != lounge.end()) return false;
         lounge[a->name()] = a;
+        // std::cout << lounge.size() << std::endl;
         return true;
     }
     bool remove_agent(std::shared_ptr<agent> a) {
@@ -86,11 +88,14 @@ public:
 private:
     std::shared_ptr<agent> find_agent(const std::string& name, const std::string& role) {
         if (name[0] == '$' && name.substr(1) == account()) {
+            // std::cout << list_agents().size() << std::endl;
             for (auto who : list_agents()) {
+                // std::cout << who->role()[0] << " " << role[0] << std::endl;
                 if (who->role()[0] == role[0]) return who;
             }
         }
         auto it = lounge.find(name);
+        // if (it == lounge.end()) std::cout << "87\n";
         if (it != lounge.end() && it->second->role()[0] == role[0]) return it->second;
         return std::shared_ptr<agent>(new agent("name=" + name + " role=dummy"));
     }

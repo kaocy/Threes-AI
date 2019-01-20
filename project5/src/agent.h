@@ -112,6 +112,17 @@ protected:
             hint = popup_bonus(engine);
         }
 
+        // randomly pick one hint tile for search
+        int next_hint_tile = 0;
+        std::uniform_int_distribution<int> popup1(0, 20);
+        if (after.can_place_bonus_tile() && popup1(engine) == 0) {
+            next_hint_tile = 4;
+        }
+        else {
+            std::uniform_int_distribution<int> popup2(1, 3);
+            next_hint_tile = popup2(engine);
+        }
+
         float worst_value = FLT_MAX;
         for (int pos = 0; pos < 16; pos++) {
             if ((last_op == 0) && (pos < 12))       continue;
@@ -121,6 +132,7 @@ protected:
             if (after(pos) != 0) continue;
 
             board tmp = board(after);
+            tmp.info(next_hint_tile);
             board::reward reward = tmp.place(pos, hint);
             if (reward != -1) {
                 float value = reward + before_value(tmp, level - 1);
@@ -232,12 +244,12 @@ public:
         // choose the best slide op
         for (int op : opcode) {
             board tmp = board(before);
-            board::reward immediate_reward = tmp.slide(op);
-            if (immediate_reward != -1) {
-                float value = immediate_reward + after_value(tmp, op, 3);
+            board::reward reward = tmp.slide(op);
+            if (reward != -1) {
+                float value = reward + after_value(tmp, op, 3);
                 if (value > best_value) {
                     best_value = value;
-                    best_reward = immediate_reward;
+                    best_reward = reward;
                     best_op = op;
                     best_state = tmp;
                 }
@@ -300,13 +312,9 @@ public:
             after.add_tile();
         }
 
-        // choose next tile, with 1/21 probability to place bonus tile
-        if (after.can_place_bonus_tile() && popup(engine) == 0) {
-            after.info(4);
-            after.add_bonus_tile();
-            after.add_tile();
-        }
-        else {
+        // for first 9 place
+        if (prev.type() == action::place::type) {
+            // choose hint tile
             for (int t : bag) {
                 if (tile_bag & (1 << t)) {
                     after.info(t / 4 + 1);
@@ -316,16 +324,13 @@ public:
                 }
             }
             after.add_tile();
-        }
 
-        // choose position for first 9 place
-        if (prev.type() == action::place::type) {
             for (int pos : space) {
                 if (after(pos) != 0) continue;
                 return action::place(pos, tile);
             }
         }
-        // choose the worst position to minimize score for place after slide
+        // for place after slide
         else {
             if (tile > 3) {
                 // randomly choose bonus tile: 6-tile to (Vmax/8)-tile
@@ -334,29 +339,100 @@ public:
             }
 
             int slide_op = prev.event() & 0b11;
-            float worst_value = FLT_MAX;
-            int worst_pos = -1;
-
-            for (int pos : space) {
-                if(slide_op == 0 && pos < 12)       continue;
-                if(slide_op == 1 && pos % 4 != 0)   continue;
-                if(slide_op == 2 && pos > 3)        continue;
-                if(slide_op == 3 && pos % 4 != 3)   continue;
-                if (after(pos) != 0) continue;
-
-                board tmp = board(after);
-                board::reward immediate_reward = tmp.place(pos, tile);
-                if (immediate_reward != -1) {
-                    float value = immediate_reward + before_value(tmp, 2);
-                    if (value < worst_value) {
-                        worst_value = value;
-                        worst_pos = pos;
+            // for training
+            if (name() == "random") {
+                // choose hint tile, with 1/21 probability to place bonus tile
+                if (after.can_place_bonus_tile() && popup(engine) == 0) {
+                    after.info(4);
+                    after.add_bonus_tile();
+                    after.add_tile();
+                }
+                else {
+                    for (int t : bag) {
+                        if (tile_bag & (1 << t)) {
+                            after.info(t / 4 + 1);
+                            tile_bag ^= (1 << t);
+                            if (tile_bag == 0)  tile_bag = (1 << 12) - 1;
+                            break;
+                        }
                     }
+                    after.add_tile();
+                }
+
+                // randomly choose one legal position
+                for (int pos : space) {
+                    if(slide_op == 0 && pos < 12)       continue;
+                    if(slide_op == 1 && pos % 4 != 0)   continue;
+                    if(slide_op == 2 && pos > 3)        continue;
+                    if(slide_op == 3 && pos % 4 != 3)   continue;
+                    if (after(pos) != 0) continue;
+                    return action::place(pos, tile);
                 }
             }
+            // for playing, choose the worst position and hint tile to minimize score
+            else {
+                float worst_value = FLT_MAX;
+                int worst_pos = -1;
 
-            if (worst_pos != -1) {
-                return action::place(worst_pos, tile);
+                // choose hint tile, with 1/21 probability to place bonus tile
+                if (after.can_place_bonus_tile() && popup(engine) == 0) {
+                    after.info(4);
+                    after.add_bonus_tile();
+                    after.add_tile();
+
+                    for (int pos : space) {
+                        if(slide_op == 0 && pos < 12)       continue;
+                        if(slide_op == 1 && pos % 4 != 0)   continue;
+                        if(slide_op == 2 && pos > 3)        continue;
+                        if(slide_op == 3 && pos % 4 != 3)   continue;
+                        if (after(pos) != 0) continue;
+
+                        board tmp = board(after);
+                        board::reward reward = tmp.place(pos, tile);
+                        if (reward != -1) {
+                            float value = reward + before_value(tmp, 2);
+                            if (value < worst_value) {
+                                worst_value = value;
+                                worst_pos = pos;
+                            }
+                        }
+                    }
+                }
+                else {
+                    int worst_hint = -1;
+                    after.add_tile();
+                    // choose the worst hint tile to player
+                    for (int t : bag) if (tile_bag & (1 << t)) {
+                        for (int pos : space) {
+                            if(slide_op == 0 && pos < 12)       continue;
+                            if(slide_op == 1 && pos % 4 != 0)   continue;
+                            if(slide_op == 2 && pos > 3)        continue;
+                            if(slide_op == 3 && pos % 4 != 3)   continue;
+                            if (after(pos) != 0) continue;
+
+                            board tmp = board(after);
+                            board::reward reward = tmp.place(pos, tile);
+                            tmp.info(t / 4 + 1);
+                            if (reward != -1) {
+                                float value = reward + before_value(tmp, 2);
+                                if (value < worst_value) {
+                                    worst_value = value;
+                                    worst_pos = pos;
+                                    worst_hint = t; // 0~11
+                                }
+                            }
+                        }
+                    }
+                    if (worst_hint != -1) {
+                        after.info(worst_hint / 4 + 1);
+                        tile_bag ^= (1 << worst_hint);
+                        if (tile_bag == 0)  tile_bag = (1 << 12) - 1;
+                    }
+                }
+
+                if (worst_pos != -1) {
+                    return action::place(worst_pos, tile);
+                }
             }
         }
         return action();
