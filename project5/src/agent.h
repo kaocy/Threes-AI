@@ -113,34 +113,49 @@ protected:
         }
 
         // randomly pick one hint tile for search
-        int next_hint_tile = 0;
+        float worst_value = FLT_MAX;
+
         std::uniform_int_distribution<int> popup1(0, 20);
         if (after.can_place_bonus_tile() && popup1(engine) == 0) {
-            next_hint_tile = 4;
-        }
-        else {
-            std::uniform_int_distribution<int> popup2(1, 3);
-            next_hint_tile = popup2(engine);
-        }
+            for (int pos = 0; pos < 16; pos++) {
+                if ((last_op == 0) && (pos < 12))       continue;
+                if ((last_op == 1) && (pos % 4 != 0))   continue;
+                if ((last_op == 2) && (pos > 3))        continue;
+                if ((last_op == 3) && (pos % 4 != 3))   continue;
+                if (after(pos) != 0) continue;
 
-        float worst_value = FLT_MAX;
-        for (int pos = 0; pos < 16; pos++) {
-            if ((last_op == 0) && (pos < 12))       continue;
-            if ((last_op == 1) && (pos % 4 != 0))   continue;
-            if ((last_op == 2) && (pos > 3))        continue;
-            if ((last_op == 3) && (pos % 4 != 3))   continue;
-            if (after(pos) != 0) continue;
-
-            board tmp = board(after);
-            tmp.info(next_hint_tile);
-            board::reward reward = tmp.place(pos, hint);
-            if (reward != -1) {
-                float value = reward + before_value(tmp, level - 1);
-                if (value < worst_value) {
-                    worst_value = value;
+                board tmp = board(after);
+                tmp.info(4);
+                board::reward reward = tmp.place(pos, hint);
+                if (reward != -1) {
+                    float value = reward + before_value(tmp, level - 1);
+                    if (value < worst_value) {
+                        worst_value = value;
+                    }
                 }
             }
         }
+        else {
+            std::uniform_int_distribution<int> popup2(1, 3);
+            for (int t : { 1, 2, 3 }) for (int pos = 0; pos < 16; pos++) {
+                if ((last_op == 0) && (pos < 12))       continue;
+                if ((last_op == 1) && (pos % 4 != 0))   continue;
+                if ((last_op == 2) && (pos > 3))        continue;
+                if ((last_op == 3) && (pos % 4 != 3))   continue;
+                if (after(pos) != 0) continue;
+
+                board tmp = board(after);
+                tmp.info(t);
+                board::reward reward = tmp.place(pos, hint);
+                if (reward != -1) {
+                    float value = reward + before_value(tmp, level - 1);
+                    if (value < worst_value) {
+                        worst_value = value;
+                    }
+                }
+            }
+        }
+
         return worst_value;
     }
 
